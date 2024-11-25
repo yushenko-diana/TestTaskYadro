@@ -18,14 +18,14 @@ namespace TestTask
 
 		MagneticTapeSystemPtr				_tapeSystem;
 
-		uint16_t							_numberOfTemporaryFiles;
+		uint16_t							_numberOfTemporaryTapes;
 		uint64_t							_ramDataCapacity;
 
 		std::vector<ITapeUniquePtr>			_tempTapes;
 		std::vector<ITapeUniquePtr>			_lastPhaseTapes;
 
 	public:
-		Sort(const MagneticTapeSystemPtr& tapeSystem, size_t ramSize, uint16_t numberOfTemporaryFiles);
+		Sort(const MagneticTapeSystemPtr& tapeSystem, size_t ramSize, uint16_t numberOfTemporaryTapes);
 
 		void SortData(const ITapeUniquePtr& inputTape, const ITapeUniquePtr& outputTape);
 

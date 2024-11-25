@@ -12,7 +12,7 @@ namespace
 {
 	const size_t RamSize = 120;
 
-	const uint16_t NumberOfTemporaryFiles = 5;
+	const uint16_t NumberOfTemporaryTapes = 5;
 
 	const uint32_t ReadWriteDelay = 10;
 	const uint32_t RewindDelay = 20;
@@ -226,7 +226,7 @@ TEST(TestTask, SortDataTest)
 
 		std::sort(dataSample.begin(), dataSample.end());
 
-		TestTask::Sort sort(tapeSystem, RamSize, NumberOfTemporaryFiles);
+		TestTask::Sort sort(tapeSystem, RamSize, NumberOfTemporaryTapes);
 		const auto inputTape = tapeSystem->LoadTape(InputSortSamplePath);
 		const auto outputTape = tapeSystem->LoadTape(OutputSortSamplePath, true);
 

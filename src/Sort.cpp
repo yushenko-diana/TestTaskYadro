@@ -13,16 +13,16 @@ namespace TestTask
 	}
 
 
-	Sort::Sort(const MagneticTapeSystemPtr& tapeSystem, size_t ramSize, uint16_t numberOfTemporaryFiles)
+	Sort::Sort(const MagneticTapeSystemPtr& tapeSystem, size_t ramSize, uint16_t numberOfTemporaryTapes)
 		:	_tapeSystem(tapeSystem),
 			_ramDataCapacity(ramSize / sizeof(int32_t)),
-			_numberOfTemporaryFiles(numberOfTemporaryFiles)
+			_numberOfTemporaryTapes(numberOfTemporaryTapes)
 	{
 		if (_ramDataCapacity == 0)
 			throw std::runtime_error("Zero RAM size");
 
-		if (_numberOfTemporaryFiles < 2)
-			_numberOfTemporaryFiles = 2;
+		if (_numberOfTemporaryTapes < 2)
+			_numberOfTemporaryTapes = 2;
 	}
 
 
@@ -59,8 +59,8 @@ namespace TestTask
 		if (tapeSize % _ramDataCapacity != 0)
 			totalNumberOfSeries += 1;
 
-		if (totalNumberOfSeries < _numberOfTemporaryFiles)
-			_numberOfTemporaryFiles = totalNumberOfSeries;
+		if (totalNumberOfSeries < _numberOfTemporaryTapes)
+			_numberOfTemporaryTapes = totalNumberOfSeries;
 
 		SplitData(inputTape);
 		MergeSeries(inputTape->Length(), outputTape);
@@ -70,7 +70,7 @@ namespace TestTask
 
 	void Sort::SplitData(const ITapeUniquePtr& inputTape)
 	{
-		for (uint16_t i = 0; i < _numberOfTemporaryFiles; i++)
+		for (uint16_t i = 0; i < _numberOfTemporaryTapes; i++)
 		{
 			const std::string fileName = TempFilePath + std::to_string(i);
 			_tempTapes.push_back(_tapeSystem->LoadTape(fileName, true));
@@ -103,26 +103,26 @@ namespace TestTask
 				}
 
 				++tempFileIndex;
-				if (tempFileIndex >= _numberOfTemporaryFiles)
+				if (tempFileIndex >= _numberOfTemporaryTapes)
 					tempFileIndex = 0;
 
 				dataChunk.clear();
 			}
 		}
 
-		for(size_t fileIndex = 0; fileIndex < _numberOfTemporaryFiles; ++fileIndex)
+		for(size_t fileIndex = 0; fileIndex < _numberOfTemporaryTapes; ++fileIndex)
 			_tempTapes[fileIndex]->RewindTape(Position::Begin);
 	}
 
 
 	void Sort::MergeOneSeries(const ITapeUniquePtr& tape, uint32_t seriesNumber)
 	{
-		std::vector<uint32_t> seriesElementsNumber(_numberOfTemporaryFiles, _ramDataCapacity);
+		std::vector<uint32_t> seriesElementsNumber(_numberOfTemporaryTapes, _ramDataCapacity);
 
 		std::priority_queue<std::pair<int32_t, uint16_t>, std::vector<std::pair<int32_t, uint16_t>>, std::greater<std::pair<int32_t, uint16_t>>> chunksRuns;
 
 		const size_t tempTapePosition = seriesNumber * _ramDataCapacity + 1;
-		for(uint16_t tempTapeIdx = 0; tempTapeIdx < _numberOfTemporaryFiles; ++tempTapeIdx)
+		for(uint16_t tempTapeIdx = 0; tempTapeIdx < _numberOfTemporaryTapes; ++tempTapeIdx)
 		{
 			const size_t tapeLength = _tempTapes[tempTapeIdx]->Length();
 
@@ -164,7 +164,7 @@ namespace TestTask
 
 	void Sort::MergeSeries(size_t tapeLength, const ITapeUniquePtr& outputTape)
 	{
-		uint16_t tempChunksSize = _ramDataCapacity * _numberOfTemporaryFiles;
+		uint16_t tempChunksSize = _ramDataCapacity * _numberOfTemporaryTapes;
 
 		uint32_t seriesCount;
 		if (tempChunksSize > tapeLength)

@@ -1,7 +1,6 @@
 {
 "readWriteDelay": 10,
 "rewindDelay":21,
-"numOfTempFiles": 3,
 "ramSize": 23,
-"numberOfTemporaryFiles": 4
+"numberOfTemporaryTapes": 4
 }

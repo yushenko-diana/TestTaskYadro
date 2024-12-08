@@ -16,6 +16,8 @@ namespace
 
 	const std::string ReadWriteDelay = "readWriteDelay";
 	const std::string RewindDelay = "rewindDelay";
+
+	const std::string PathToWorkDirectory = "pathToWorkDirectory";
 }
 
 
@@ -53,11 +55,14 @@ int main(int argc, char *argv[])
 		const uint32_t readWriteDelay = configData.at(ReadWriteDelay);
 		const uint32_t rewindDelay = configData.at(RewindDelay);
 
-		std::shared_ptr<TestTask::MagneticTapeSystem> tapeSystem = std::make_shared<TestTask::MagneticTapeSystem>(readWriteDelay, rewindDelay);
+		const std::string pathToWorkDirectory = configData.at(PathToWorkDirectory);
 
-		TestTask::Sort s(tapeSystem, ramSize, numberOfTemporaryTapes);
-		const auto inputTape = tapeSystem->LoadTape("../" + std::string(argv[1]));
-		const auto outputTape = tapeSystem->LoadTape("../" + std::string(argv[2]), true);
+		std::shared_ptr<TestTask::AbstractTapeFactory> temporaryTapeFactory = std::make_shared<TestTask::TemporaryTapeFactory>(readWriteDelay, rewindDelay, pathToWorkDirectory);
+		std::shared_ptr<TestTask::AbstractTapeFactory> tapeFactory = std::make_shared<TestTask::TapeFactory>(readWriteDelay, rewindDelay, pathToWorkDirectory);
+
+		TestTask::Sort s(temporaryTapeFactory, ramSize, numberOfTemporaryTapes);
+		const auto inputTape = tapeFactory->Create(std::string(argv[1]));
+		const auto outputTape = tapeFactory->Create(std::string(argv[2]));
 
 		s.SortData(inputTape, outputTape);
 	}

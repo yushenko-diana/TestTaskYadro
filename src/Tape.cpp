@@ -1,6 +1,7 @@
 #include "Tape.h"
 
 #include <chrono>
+#include <filesystem>
 #include <iostream>
 #include <stdexcept>
 #include <thread>
@@ -14,15 +15,16 @@ namespace TestTask
 	}
 
 
-	Tape::Tape(const std::string& tapeName, bool newTape, size_t readWriteDelay, size_t rewindDelay, size_t capacity)
+	Tape::Tape(const std::string& tapeName, size_t readWriteDelay, size_t rewindDelay, size_t capacity)
 		:	_currentPos(1),
 			_capacity(capacity),
 			_readWriteDelay(readWriteDelay),
-			_rewindDelay(_rewindDelay)
+			_rewindDelay(rewindDelay)
 	{
 
 		std::_Ios_Openmode mode = std::ios_base::in | std::ios_base::out | std::ios_base::binary;
-		if (newTape)
+
+		if (!std::filesystem::exists(tapeName))
 			mode |= std::ios_base::trunc;
 
 		_tapeBand.open(tapeName, mode);
@@ -33,7 +35,6 @@ namespace TestTask
 		_tapeBand.seekp(0, std::ios_base::end);
 		size_t endPose = _tapeBand.tellp();
 		_tapeBand.seekp(0, std::ios_base::beg);
-		const auto b = _tapeBand.tellp();
 
 		_length  = endPose / IntSize;
 		if (endPose > _capacity)
@@ -151,7 +152,7 @@ namespace TestTask
 		_tapeBand.seekp(-IntSize, std::ios_base::cur);
 
 		if (!placeWrite)
-			if (_currentPos  >= _length)
+			if (_currentPos > _length)
 				++_length;
 
 		std::this_thread::sleep_for(std::chrono::microseconds(_readWriteDelay));

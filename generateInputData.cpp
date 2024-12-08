@@ -11,13 +11,14 @@ namespace
 
 int main(int argc, char *argv[])
 {
-	if (argc < 2)
+	if (argc < 3)
 	{
-		std::cerr << "Number of elements must be specified\n";
+		std::cerr << "Number of elements or path to file must be specified\n";
 		return -1;
 	}
 
 	const int64_t numberOfElements = std::atoi(argv[1]);
+	const std::string pathToFile = std::string(argv[2]);
 
 	if (numberOfElements < 0)
 	{
@@ -25,7 +26,7 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	std::ofstream inputFile("../inputData", std::ios_base::out | std::ios_base::binary | std::ios_base::trunc);
+	std::ofstream inputFile(pathToFile + "/inputData", std::ios_base::out | std::ios_base::binary | std::ios_base::trunc);
 	if (!inputFile.is_open())
 	{
 		std::cerr << "Unable to create file\n";

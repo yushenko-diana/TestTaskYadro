@@ -7,14 +7,11 @@ namespace TestTask
 
 	namespace
 	{
-		const std::string TemporaryFolderPath = "../tmp/";
-		const std::string TempFilePath = TemporaryFolderPath + "tmp";
-		const std::string LastPhaseFilePath = TemporaryFolderPath + "lp";
+		const std::string TemporaryTapeName = "tmp";
 	}
 
-
-	Sort::Sort(const MagneticTapeSystemPtr& tapeSystem, size_t ramSize, uint16_t numberOfTemporaryTapes)
-		:	_tapeSystem(tapeSystem),
+	Sort::Sort(const TapeFactoryPtr& tapeFactory, size_t ramSize, uint16_t numberOfTemporaryTapes)
+		:	_tapeFactory(tapeFactory),
 			_ramDataCapacity(ramSize / sizeof(int32_t)),
 			_numberOfTemporaryTapes(numberOfTemporaryTapes)
 	{
@@ -38,16 +35,16 @@ namespace TestTask
 			return;
 		}
 
-		if (tapeSize == _ramDataCapacity)
+		if (tapeSize <= _ramDataCapacity)
 		{
 			std::vector<int32_t> dataChunk;
 			dataChunk.reserve(_ramDataCapacity);
-			for (int pos = 0; pos < _ramDataCapacity; ++pos)
+			for (int pos = 0; pos < tapeSize; ++pos)
 				dataChunk.push_back(inputTape->Read(pos + 1));
 
 			std::sort(dataChunk.begin(), dataChunk.end());
 
-			for (size_t i = 0; i < _ramDataCapacity; ++i)
+			for (size_t i = 0; i < tapeSize; ++i)
 			{
 				outputTape->WriteToCurrentCell(dataChunk.at(i));
 				outputTape->RewindTape(1, Direction::Forward);
@@ -55,36 +52,49 @@ namespace TestTask
 			return;
 		}
 
-		size_t totalNumberOfSeries = tapeSize / _ramDataCapacity;
-		if (tapeSize % _ramDataCapacity != 0)
-			totalNumberOfSeries += 1;
-
-		if (totalNumberOfSeries < _numberOfTemporaryTapes)
-			_numberOfTemporaryTapes = totalNumberOfSeries;
+		Configure(tapeSize);
 
 		SplitData(inputTape);
-		MergeSeries(inputTape->Length(), outputTape);
+		MergeSeries(outputTape);
 		MergeLastSeries(outputTape);
+	}
+
+
+	void Sort::Configure(size_t tapeLength)
+	{
+		size_t totalNumberOfChunks = tapeLength / _ramDataCapacity;
+		if (tapeLength % _ramDataCapacity != 0)
+			totalNumberOfChunks += 1;
+
+		if (totalNumberOfChunks < _numberOfTemporaryTapes)
+			_numberOfTemporaryTapes = totalNumberOfChunks;
+
+		const uint16_t totalNumberOfChunksOfOneSeries = _ramDataCapacity * _numberOfTemporaryTapes;
+		if (totalNumberOfChunksOfOneSeries > tapeLength)
+			_seriesCount = 1;
+
+		else
+		{
+			_seriesCount = tapeLength / totalNumberOfChunksOfOneSeries;
+			if (tapeLength % totalNumberOfChunksOfOneSeries != 0)
+				_seriesCount += 1;
+		}
 	}
 
 
 	void Sort::SplitData(const ITapeUniquePtr& inputTape)
 	{
-		for (uint16_t i = 0; i < _numberOfTemporaryTapes; i++)
-		{
-			const std::string fileName = TempFilePath + std::to_string(i);
-			_tempTapes.push_back(_tapeSystem->LoadTape(fileName, true));
-		}
+		for (uint16_t tempTapeIndex = 0; tempTapeIndex < _numberOfTemporaryTapes; tempTapeIndex++)
+			_tempTapes.push_back(_tapeFactory->Create(TemporaryTapeName));
 
 		std::vector<int32_t> dataChunk;
 		dataChunk.reserve(_ramDataCapacity);
 
-		uint16_t tempFileIndex = 0;
+		uint16_t tempTapeIndex = 0;
 		uint64_t elementPos = 0;
 
 		for(size_t pos = 1; pos <= inputTape->Length(); ++pos)
 		{
-			const auto d = inputTape->Read(pos);
 			dataChunk.push_back(inputTape->Read(pos));
 
 			++elementPos;
@@ -98,20 +108,20 @@ namespace TestTask
 
 				for (size_t i = 0; i < chunkSize; ++i)
 				{
-					_tempTapes[tempFileIndex]->WriteToCurrentCell(dataChunk.at(i));
-					_tempTapes[tempFileIndex]->RewindTape(1, Direction::Forward);
+					_tempTapes[tempTapeIndex]->WriteToCurrentCell(dataChunk.at(i));
+					_tempTapes[tempTapeIndex]->RewindTape(1, Direction::Forward);
 				}
 
-				++tempFileIndex;
-				if (tempFileIndex >= _numberOfTemporaryTapes)
-					tempFileIndex = 0;
+				++tempTapeIndex;
+				if (tempTapeIndex >= _numberOfTemporaryTapes)
+					tempTapeIndex = 0;
 
 				dataChunk.clear();
 			}
 		}
 
-		for(size_t fileIndex = 0; fileIndex < _numberOfTemporaryTapes; ++fileIndex)
-			_tempTapes[fileIndex]->RewindTape(Position::Begin);
+		for(size_t tapeIndex = 0; tapeIndex < _numberOfTemporaryTapes; ++tapeIndex)
+			_tempTapes[tapeIndex]->RewindTape(Position::Begin);
 	}
 
 
@@ -148,50 +158,36 @@ namespace TestTask
 
 			tape->WriteToCurrentCell(minRun.first);
 			tape->RewindTape(1, Direction::Forward);
-			const uint16_t minElemFileIdx = minRun.second;
+			const uint16_t minElemTapeIdx = minRun.second;
 
-			if (!_tempTapes.at(minElemFileIdx)->EndOfTape() && seriesElementsNumber.at(minElemFileIdx) > 0)
+			if (!_tempTapes.at(minElemTapeIdx)->EndOfTape() && seriesElementsNumber.at(minElemTapeIdx) > 0)
 			{
-				_tempTapes.at(minElemFileIdx)->RewindTape(1, Direction::Forward);
-				chunksRuns.push({_tempTapes.at(minElemFileIdx)->ReadFromCurrentCell(), minElemFileIdx});
+				_tempTapes.at(minElemTapeIdx)->RewindTape(1, Direction::Forward);
+				chunksRuns.push({_tempTapes.at(minElemTapeIdx)->ReadFromCurrentCell(), minElemTapeIdx});
 
-				seriesElementsNumber.at(minElemFileIdx) -= 1;
+				seriesElementsNumber.at(minElemTapeIdx) -= 1;
 			}
 		}
 
 	}
 
 
-	void Sort::MergeSeries(size_t tapeLength, const ITapeUniquePtr& outputTape)
+	void Sort::MergeSeries(const ITapeUniquePtr& outputTape)
 	{
-		uint16_t tempChunksSize = _ramDataCapacity * _numberOfTemporaryTapes;
-
-		uint32_t seriesCount;
-		if (tempChunksSize > tapeLength)
-			seriesCount = 1;
-
-		else
-		{
-			seriesCount = tapeLength / tempChunksSize;
-			if (tapeLength % tempChunksSize != 0)
-				seriesCount += 1;
-		}
-
 		uint32_t seriesNumber = 0;
 
-		if (seriesCount == 1)
+		if (_seriesCount == 1)
 		{
 			MergeOneSeries(outputTape, seriesNumber);
 			return;
 		}
 
-		while (seriesCount)
+		while (_seriesCount)
 		{
-			std::string tapeName = LastPhaseFilePath + std::to_string(seriesNumber);
-			_lastPhaseTapes.push_back(_tapeSystem->LoadTape(tapeName, true));
+			_lastPhaseTapes.push_back(_tapeFactory->Create(TemporaryTapeName));
 			MergeOneSeries(_lastPhaseTapes.at(seriesNumber), seriesNumber);
 
-			--seriesCount;
+			--_seriesCount;
 			++seriesNumber;
 		}
 	}
@@ -217,12 +213,12 @@ namespace TestTask
 
 			outputTape->WriteToCurrentCell(minRun.first);
 			outputTape->RewindTape(1, Direction::Forward);
-			const uint16_t minElemFileIdx = minRun.second;
+			const uint16_t minElemTapeIdx = minRun.second;
 
-			if (!_lastPhaseTapes.at(minElemFileIdx)->EndOfTape())
+			if (!_lastPhaseTapes.at(minElemTapeIdx)->EndOfTape())
 			{
-				_lastPhaseTapes.at(minElemFileIdx)->RewindTape(1, Direction::Forward);
-				chunksRuns.push({_lastPhaseTapes.at(minElemFileIdx)->ReadFromCurrentCell(), minElemFileIdx});
+				_lastPhaseTapes.at(minElemTapeIdx)->RewindTape(1, Direction::Forward);
+				chunksRuns.push({_lastPhaseTapes.at(minElemTapeIdx)->ReadFromCurrentCell(), minElemTapeIdx});
 			}
 		}
 	}

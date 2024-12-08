@@ -6,7 +6,10 @@
 #include <string>
 
 #include "ITape.h"
-#include "MagneticTapeSystem.h"
+
+#include "factory/TapeFactory.h"
+#include "factory/TemporaryTapeFactory.h"
+
 
 namespace TestTask
 {
@@ -14,7 +17,8 @@ namespace TestTask
 	class Tape : public ITape
 	{
 	public:
-		friend class MagneticTapeSystem;
+		friend class TemporaryTapeFactory;
+		friend class TapeFactory;
 
 	private:
 		const static size_t TeraByte = 1099511627776;
@@ -52,7 +56,7 @@ namespace TestTask
 		{ return _currentPos == _length; }
 
 	private:
-		Tape(const std::string& tapeName, bool trunc, size_t readWriteDelay, size_t rewindDelay, size_t capacity = TeraByte);
+		Tape(const std::string& tapeName, size_t readWriteDelay, size_t rewindDelay, size_t capacity = TeraByte);
 
 		int32_t DoRead();
 		void DoWrite(int32_t data, bool placeWrite = true);

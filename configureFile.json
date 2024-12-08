@@ -2,5 +2,6 @@
 "readWriteDelay": 10,
 "rewindDelay":21,
 "ramSize": 23,
-"numberOfTemporaryTapes": 4
+"numberOfTemporaryTapes": 4,
+"pathToWorkDirectory": "/absolute/path/to/work/directory"
 }

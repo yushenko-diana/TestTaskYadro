@@ -40,7 +40,7 @@
 
 ### 3.Запуск тестов
 
-```./runTests```
+```./runTests </absolute/path/to/configFile>```
 
 
 
